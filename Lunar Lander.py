@@ -24,7 +24,7 @@ agent.load_weights("./LunarLanderModel")
 agent.compile(optimizer='adam', loss='mse')
 done = False
 round = 0
-total_rounds=50
+total_rounds=10
 X = []
 Y = []
 
