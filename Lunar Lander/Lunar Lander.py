@@ -1,9 +1,14 @@
+from tabnanny import verbose
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Input
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
 import gym
 import numpy as np
 env = gym.make("LunarLander-v2")
 env.action_space.seed(42)
+
+CHECKPOINT_PATH="./LLModels/LunarLanderModel"
 
 obs, info = env.reset(seed=42, return_info=True)
 
@@ -17,15 +22,15 @@ def get_state(obs):
 #agent = Linear([9])
 agent = Sequential()
 agent.add(Input(shape=(8)))
-agent.add(Dense(8))
-agent.add(Dense(16))
-agent.add(Dense(8))
+agent.add(Dense(80, activation="tanh"))
+agent.add(Dense(160, activation="tanh"))
+agent.add(Dense(80))
 agent.add(Dense(4))
-agent.load_weights("./LunarLanderModel")
+agent.load_weights(CHECKPOINT_PATH)
 agent.compile(optimizer='adam', loss='mse')
 done = False
 round = 0
-total_rounds=1000
+total_rounds=10
 X = []
 Y = []
 X_Hist = []
@@ -33,7 +38,7 @@ Y_Hist = []
 
 def get_action(obs, agent):
     expected_rewards = []
-    expected_rewards = agent.predict(np.array([obs]))
+    expected_rewards = agent.predict(np.array([obs]), verbose=0)
     
     a = np.argmax(expected_rewards[0])
     
@@ -94,13 +99,13 @@ while round < total_rounds:
             Y_Hist = np.append(Y_Hist, Y, axis=0)
 
         #End of the round, do some learning!
-        agent.fit(X_Hist, Y_Hist, epochs=10)
+        agent.fit(X_Hist, Y_Hist, epochs=10, verbose=0)
 
         X = []
         Y = []
         act_hist = []
 
 #Save the model!
-agent.save_weights('./LunarLanderModel')
+agent.save_weights(CHECKPOINT_PATH)
 
 env.close()
