@@ -17,16 +17,19 @@ def get_state(obs):
 #agent = Linear([9])
 agent = Sequential()
 agent.add(Input(shape=(8)))
-agent.add(Dense(9))
-agent.add(Dense(9))
+agent.add(Dense(8))
+agent.add(Dense(16))
+agent.add(Dense(8))
 agent.add(Dense(4))
 agent.load_weights("./LunarLanderModel")
 agent.compile(optimizer='adam', loss='mse')
 done = False
 round = 0
-total_rounds=10
+total_rounds=1000
 X = []
 Y = []
+X_Hist = []
+Y_Hist = []
 
 def get_action(obs, agent):
     expected_rewards = []
@@ -70,18 +73,28 @@ while round < total_rounds:
         Y = np.append(Y, np.array([y]), axis=0)
     
     #update previous rewards
-    decay = 0.75
+    decay = 0.35
     for i, a in enumerate(act_hist):
         Y[i][a] += reward * decay
-        decay *= 0.4
+        decay *= 0.15
 
     obs = new_obs
 
     if done:
         obs, info = env.reset(return_info=True)
         round += 1
+        print(f'Round {round} / {total_rounds}')
+
+        #Add the new Data to the Master List
+        if len(X_Hist) == 0:
+            X_Hist = X
+            Y_Hist = Y
+        else:
+            X_Hist = np.append(X_Hist, X, axis=0)
+            Y_Hist = np.append(Y_Hist, Y, axis=0)
+
         #End of the round, do some learning!
-        agent.fit(X, Y, epochs=5)
+        agent.fit(X_Hist, Y_Hist, epochs=10)
 
         X = []
         Y = []
