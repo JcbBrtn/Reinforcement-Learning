@@ -1,6 +1,8 @@
+from json import load
 from tabnanny import verbose
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.layers import Dense, Input, LSTM, BatchNormalization
+from tensorflow.keras.models import load_model
 import tensorflow as tf
 tf.get_logger().setLevel('ERROR')
 import gym
@@ -8,29 +10,33 @@ import numpy as np
 env = gym.make("LunarLander-v2")
 env.action_space.seed(42)
 
-CHECKPOINT_PATH="./LLModels/LunarLanderModel"
+CHECKPOINT_PATH=".LunarLanderModel.h5"
 
 obs, info = env.reset(seed=42, return_info=True)
 
-def get_state(obs):
-    rounded_obs = []
-    for o in obs:
-        rounded_obs.append(round(o, 2))
-    return ((np.array(rounded_obs) + 5) * 10).astype(int)
+def normalize(obs):
+    ob = obs + [1.5, 1.5, 5.0, 5.0, 3.14, 5.0, 1.0, 1.0 ]
+    sc = [3,3,10,10,6.28,10,2,2]
+    for i in range(len(ob)):
+        ob[i] = ob[i]/sc[i]
+    return ob
 
-#Create everything we need for training
-#agent = Linear([9])
+
+NEW_MODEL = False
 agent = Sequential()
-agent.add(Input(shape=(8)))
-agent.add(Dense(80, activation="tanh"))
-agent.add(Dense(160, activation="tanh"))
-agent.add(Dense(80))
-agent.add(Dense(4))
-agent.load_weights(CHECKPOINT_PATH)
-agent.compile(optimizer='adam', loss='mse')
+if NEW_MODEL:
+    #Create everything we need for training
+    #agent = Linear([9])
+    agent.add(LSTM(132, input_shape=(8, 1)))
+    agent.add(BatchNormalization())
+    agent.add(Dense(4))
+    #agent.load_weights(CHECKPOINT_PATH)
+    agent.compile(optimizer='adam', loss='mse')
+else:
+    agent = load_model(CHECKPOINT_PATH)
 done = False
 round = 0
-total_rounds=10
+total_rounds=30
 X = []
 Y = []
 X_Hist = []
@@ -49,11 +55,12 @@ act = 0
 act_hist = []
 while round < total_rounds:
 
-    if False:
-        act = env.action_space.sample()
-        er = "No way hogay we yearnin'"
-    else:
+    obs = normalize(obs)
+
+    if len(X) == 0:
         act, er = get_action(obs, agent)
+    else:
+        act, er = get_action(X, agent)
 
     act_hist.append(act)
     new_obs, reward, done, info = env.step(act)
@@ -78,10 +85,10 @@ while round < total_rounds:
         Y = np.append(Y, np.array([y]), axis=0)
     
     #update previous rewards
-    decay = 0.35
+    decay = 0.85
     for i, a in enumerate(act_hist):
-        Y[i][a] += reward * decay
-        decay *= 0.15
+        reward *= decay
+        Y[i][a] += reward
 
     obs = new_obs
 
@@ -106,6 +113,6 @@ while round < total_rounds:
         act_hist = []
 
 #Save the model!
-agent.save_weights(CHECKPOINT_PATH)
+agent.save(CHECKPOINT_PATH)
 
 env.close()
